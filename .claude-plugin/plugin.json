@@ -1,0 +1,9 @@
+{
+  "name": "shopify-admin-cli",
+  "version": "0.1.0",
+  "description": "Generic stencil for the clify scaffolder. Inspired structurally by google/agents-cli; hand-crafted, fully tested, and fictional.",
+  "author": { "name": "clify" },
+  "license": "MIT",
+  "skills": "./skills",
+  "capabilities": ["network"]
+}
