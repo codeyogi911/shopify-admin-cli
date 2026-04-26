@@ -28,6 +28,7 @@ Knowledge base for Shopify Admin GraphQL API quirks, business rules, and pattern
 | `knowledge/rate-limit.md` | Generic rate-limit primer (legacy stencil) |
 | `knowledge/idempotency-keys.md` | Generic idempotency primer (legacy stencil) |
 | `knowledge/composite-orders.md` | Generic composite-resource pattern (legacy stencil) |
+| `knowledge/created-at-shop-timezone.md` | `created_at:` / `updated_at:` in `--query` is shop-tz, not UTC; pass local time |
 
 ## How to add a new knowledge file
 
