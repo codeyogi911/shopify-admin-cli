@@ -1,66 +1,94 @@
 # shopify-admin-cli
 
-A hand-crafted, fictional CLI used as the **stencil** for the [clify](https://github.com/codeyogi911/clify) scaffolder.
+Agent-friendly CLI for the [Shopify Admin GraphQL API](https://shopify.dev/docs/api/admin-graphql). Wraps [`@shopify/shopify-api`](https://www.npmjs.com/package/@shopify/shopify-api) in custom-app mode — static admin token, no OAuth, no session storage. One resource × one action = one GraphQL operation.
 
-`shopify-admin-cli` is structurally inspired by [google/agents-cli](https://github.com/google/agents-cli):
+## Install
 
-- Hierarchical subcommands (`<resource> <action>`).
-- One file per resource under `commands/`.
-- Shared HTTP, auth, output, and config layers under `lib/`.
-- A first-class `login` command with `--status`.
-- Modular skills under `skills/<cli>-<role>/`.
-- Fully tested against an in-repo mock server — no network needed for `npm test`.
-
-The "Shopify Admin API" is fictional. The clify scaffolder copies this whole tree, mechanically renames `shopify-admin` / `SHOPIFY_ADMIN` / `Shopify Admin` to the target API's name, and an LLM substitutes the resource registry, knowledge files, and tests to match.
-
-## Layout
-
-```
-shopify-admin-cli/
-├── bin/shopify-admin-cli.mjs          thin dispatcher
-├── lib/
-│   ├── api.mjs                   apiRequest + cursor pagination
-│   ├── auth.mjs                  pluggable auth (bearer)
-│   ├── config.mjs                ~/.config/shopify-admin-cli/credentials.json
-│   ├── env.mjs                   .env loader
-│   ├── args.mjs                  splitGlobal, parseArgs adapters
-│   ├── help.mjs                  --help generators
-│   └── output.mjs                output, errorOut
-├── commands/
-│   ├── items.mjs                 list/get/create/update/delete (+ idempotency, if-match)
-│   ├── item-variants.mjs         sub-resource of items
-│   ├── orders.mjs                list/get/create/upload (multipart)
-│   └── login.mjs                 token persistence + --status
-├── skills/                       modular, four files
-├── knowledge/                    business rules + patterns
-├── test/
-│   ├── _helpers.mjs              spawn-CLI helper
-│   ├── _mock-server.mjs          zero-dep HTTP mock
-│   ├── smoke.test.mjs            structural tests
-│   ├── integration.test.mjs      mock-driven CRUD + pagination + multipart
-│   └── auth.test.mjs             bearer wiring + login --status
-├── .clify.json                   metadata read by the validator
-├── coverage.json                 every endpoint, included or dropped
-├── .env.example                  SHOPIFY_ADMIN_API_KEY + SHOPIFY_ADMIN_BASE_URL
-└── .github/workflows/test.yml    Node 20 + 22 CI
+```bash
+git clone <this-repo> && cd shopify-admin-cli
+npm install
+node bin/shopify-admin-cli.mjs --help
 ```
 
-## Use
+Or symlink into your PATH:
 
-```
-SHOPIFY_ADMIN_API_KEY=test shopify-admin-cli items list --all
-shopify-admin-cli items create --name Widget --sku W-001 --price 9.99 --idempotency-key "$(uuidgen)"
-shopify-admin-cli orders upload --id ord-1 --file ./receipt.pdf
+```bash
+ln -sf "$(pwd)/bin/shopify-admin-cli.mjs" /usr/local/bin/shopify-admin-cli
 ```
 
-## Test
+## Authenticate
 
+```bash
+export SHOPIFY_STORE_URL=your-store.myshopify.com
+export SHOPIFY_ADMIN_TOKEN=shpat_...        # Custom-app admin API access token
+shopify-admin-cli shop info --json          # smoke test
 ```
+
+See [`skills/shopify-admin-cli-auth/SKILL.md`](skills/shopify-admin-cli-auth/SKILL.md) for token minting + scopes.
+
+## What it covers
+
+17 resources × 77 actions:
+
+| Resource | Actions |
+|---|---|
+| products | list, get, create, update, set, delete |
+| orders | list, get, cancel, close, reopen, edit-begin, edit-stage, edit-commit |
+| customers | list, get, search, create, update, delete, segments-list |
+| inventory | levels-list, locations-list, adjust, set |
+| collections | list, get, create, update, products-add, products-remove |
+| discounts | list, get, create-code, create-automatic, deactivate |
+| metafields | list, get, set, delete |
+| fulfillment | create, update-tracking, cancel, hold, release |
+| refunds | preview, create |
+| draft-orders | list, get, create, update, complete, send-invoice |
+| returns | list, request, approve, decline, refund |
+| files | list, upload, delete |
+| webhooks | list, create, delete |
+| bulk | query, query-status, query-cancel, mutation, mutation-status |
+| gql | run (raw GraphQL escape hatch) |
+| introspect | full, type, queries, mutations |
+| shop | info, scopes, rate-limit |
+
+Help: `shopify-admin-cli <resource> --help`, then `shopify-admin-cli <resource> <action> --help`.
+
+## Examples
+
+```bash
+# Look up an order by name
+shopify-admin-cli orders list --query "name:#1234" --first 1 --json
+
+# Walk every customer that opted in to marketing
+shopify-admin-cli customers list --query "email_marketing_state:SUBSCRIBED" --all --json
+
+# Idempotent refund
+shopify-admin-cli refunds create \
+  --idempotency-key "FCS-REFUND-$(uuidgen)" \
+  --body "$(cat refund-input.json)"
+
+# Generic GraphQL
+shopify-admin-cli gql run \
+  --query 'query { shop { name plan { displayName } } }' \
+  --json
+
+# Schema discovery
+shopify-admin-cli introspect type --name Order --json | jq '.fields[].name'
+```
+
+## Knowledge files
+
+`knowledge/` contains Shopify-specific gotchas: cost-based throttling, GID format, idempotent refunds, productSet vs productUpdate, three-phase order edits, staged uploads, bulk operations, B2B Plus-only gating, API version cadence, and why this CLI uses the official SDK over zero-dep fetch. Read these before mutating anything.
+
+## Testing
+
+```bash
 npm test
 ```
 
-Runs smoke (no network), integration (against `test/_mock-server.mjs`), and auth tests on the current Node version. CI runs the same on Node 20 and 22.
+Tests run against an in-process GraphQL mock (`test/_mock-server.mjs`) — no live Shopify calls. Set `SHOPIFY_ADMIN_BASE_URL=http://127.0.0.1:<port>` to redirect the SDK at the mock.
 
-## Why a fictional API
+## Built with
 
-Real APIs come with real quirks, real auth flows, and real onboarding requirements. A stencil tied to one real API would teach the scaffolder that API's idiosyncrasies as universal patterns. By staying fictional, this shopify-admin keeps the structural lessons (how resources are split into files, how auth is pluggable, how pagination is library-level) free of any API's specific shape.
+- [`@shopify/shopify-api`](https://github.com/Shopify/shopify-app-js/tree/main/packages/apps/shopify-api) — official Node SDK, custom-app mode
+- Generated with [clify](https://github.com/codeyogi911/clify) 0.3.0 from the exemplar template
+- Validates with `clify validate ./` (gate categories: manifest, schema, secrets, coverage, structural, nuances, ci, tests)

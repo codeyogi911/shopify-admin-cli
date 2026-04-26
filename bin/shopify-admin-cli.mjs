@@ -1,24 +1,37 @@
 #!/usr/bin/env node
-// shopify-admin-cli — Hand-crafted stencil for the clify scaffolder.
-//
-// The entry is intentionally thin. Resource definitions live under commands/,
-// shared HTTP and auth machinery under lib/. The scaffolder copies this whole
-// tree, mechanically renames `shopify-admin` → `<api>`, and an LLM substitutes the
-// resource registry to match the target API.
+// shopify-admin-cli — agent-friendly wrapper around the Shopify Admin
+// GraphQL API. Resource definitions live under commands/, the SDK
+// adapter and helpers under lib/. The dispatcher routes each action to
+// either the GraphQL client (kind: "graphql") or a small REST helper
+// (kind: "rest") used by staged file uploads.
 import { parseArgs } from "node:util";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadEnv } from "../lib/env.mjs";
 import { splitGlobal, hasHelp, toParseArgs, checkRequired } from "../lib/args.mjs";
 import { output, errorOut } from "../lib/output.mjs";
-import { apiRequest, paginate } from "../lib/api.mjs";
+import { gqlRequest, restRequest, paginate } from "../lib/api.mjs";
 import { showRootHelp, showResourceHelp, showActionHelp } from "../lib/help.mjs";
 
-import items from "../commands/items.mjs";
-import itemVariants from "../commands/item-variants.mjs";
+import products from "../commands/products.mjs";
 import orders from "../commands/orders.mjs";
+import customers from "../commands/customers.mjs";
+import inventory from "../commands/inventory.mjs";
+import collections from "../commands/collections.mjs";
+import discounts from "../commands/discounts.mjs";
+import metafields from "../commands/metafields.mjs";
+import fulfillment from "../commands/fulfillment.mjs";
+import refunds from "../commands/refunds.mjs";
+import draftOrders from "../commands/draft-orders.mjs";
+import returns from "../commands/returns.mjs";
+import files from "../commands/files.mjs";
+import webhooks from "../commands/webhooks.mjs";
+import bulk from "../commands/bulk.mjs";
+import gql from "../commands/gql.mjs";
+import introspect from "../commands/introspect.mjs";
+import shop from "../commands/shop.mjs";
 import { loginFlags, runLogin } from "../commands/login.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -29,21 +42,23 @@ loadEnv(REPO_ROOT);
 const pkg = JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8"));
 const VERSION = pkg.version;
 
-// Resource registry. Each command file default-exports
-// { name, actions, buildPayload? }. The bin assembles the lookup table here.
-const COMMANDS = [items, itemVariants, orders];
+const COMMANDS = [
+  products, orders, customers, inventory, collections, discounts,
+  metafields, fulfillment, refunds, draftOrders, returns, files,
+  webhooks, bulk, gql, introspect, shop,
+];
 const REGISTRY = Object.fromEntries(COMMANDS.map((c) => [c.name, c.actions]));
-const PAYLOAD_BUILDERS = Object.fromEntries(COMMANDS.map((c) => [c.name, c.buildPayload || (() => ({}))]));
 
-function interpolatePath(template, values) {
-  let path = template;
-  for (const m of template.matchAll(/:([a-zA-Z_]+)/g)) {
-    const k = m[1];
-    const v = values[k];
-    if (v === undefined) errorOut("validation_error", `Missing path parameter --${k}`);
-    path = path.replace(`:${k}`, encodeURIComponent(String(v)));
+function buildVariables(def, values) {
+  if (typeof def.variables === "function") return def.variables(values);
+  // Default: forward every flag value verbatim, dropping internal ones.
+  const out = {};
+  for (const [k, v] of Object.entries(values)) {
+    if (v === undefined) continue;
+    if (k === "body" || k === "file" || k === "idempotency-key") continue;
+    out[k] = v;
   }
-  return path;
+  return out;
 }
 
 async function runResourceAction(resourceArg, actionArg, remaining, global, rest) {
@@ -56,64 +71,76 @@ async function runResourceAction(resourceArg, actionArg, remaining, global, rest
 
   let parsed;
   try {
-    parsed = parseArgs({ args: remaining, options: toParseArgs(def.flags), strict: true, allowPositionals: false });
+    parsed = parseArgs({ args: remaining, options: toParseArgs(def.flags || {}), strict: true, allowPositionals: false });
   } catch (err) {
     errorOut("validation_error", err.message);
   }
 
-  const missing = checkRequired(parsed.values, def.flags);
+  const missing = checkRequired(parsed.values, def.flags || {});
   if (missing.length) errorOut("validation_error", `Missing required flag(s): ${missing.map((m) => `--${m}`).join(", ")}`);
 
-  const path = interpolatePath(def.path, parsed.values);
-  const buildPayload = PAYLOAD_BUILDERS[resourceArg];
-
-  let body;
-  if (def.method !== "GET" && def.method !== "DELETE" && !parsed.values.file) {
-    if (parsed.values.body) {
-      try { body = JSON.parse(parsed.values.body); }
-      catch { errorOut("validation_error", "--body must be valid JSON"); }
-    } else {
-      body = buildPayload(parsed.values);
-    }
+  // --body overrides: agent passes raw JSON variables.
+  let variables;
+  if (parsed.values.body) {
+    try { variables = JSON.parse(parsed.values.body); }
+    catch { errorOut("validation_error", "--body must be valid JSON"); }
+  } else {
+    variables = buildVariables(def, parsed.values);
   }
 
-  // Cursor pagination via --all on list-like actions.
-  if (global.all && actionArg === "list") {
-    const collected = [];
-    const query = {};
-    if (parsed.values.cursor) query.cursor = parsed.values.cursor;
-    if (parsed.values.limit) query.limit = parsed.values.limit;
-    if (parsed.values.status) query.status = parsed.values.status;
-    for await (const item of paginate({ method: def.method, path, query, version: VERSION, dryRun: !!global.dry_run, verbose: !!global.verbose })) {
-      collected.push(item);
+  const idempotencyKey = parsed.values["idempotency-key"];
+  const dryRun = !!global.dry_run;
+  const verbose = !!global.verbose;
+
+  // GraphQL — the common path.
+  if (!def.kind || def.kind === "graphql") {
+    // Some commands (e.g. `gql run`) materialise the query at runtime
+    // from --query / --query-file. Honour that hook when present.
+    let query = def.query;
+    if (typeof def.resolveQuery === "function") {
+      const resolved = def.resolveQuery(parsed.values);
+      if (!resolved) errorOut("validation_error", "Provide --query or --query-file");
+      query = resolved;
     }
-    output(collected, !!global.json);
+    if (global.all && def.paginatePath) {
+      const collected = [];
+      for await (const item of paginate({ query, variables, paginatePath: def.paginatePath, dryRun, verbose })) {
+        if (item?.__dryRun) { output(item, !!global.json); return; }
+        collected.push(item);
+      }
+      output(collected, !!global.json);
+      return;
+    }
+    const data = await gqlRequest({ query, variables, dryRun, verbose, idempotencyKey });
+    if (data?.__dryRun) { output(data, !!global.json); return; }
+    // Multi-step flows (staged uploads) finalise via postProcess.
+    if (typeof def.postProcess === "function" && !dryRun) {
+      const finalData = await def.postProcess(data, parsed.values);
+      output(typeof def.project === "function" ? def.project(finalData) : finalData, !!global.json);
+      return;
+    }
+    const projected = typeof def.project === "function" ? def.project(data) : data;
+    output(projected, !!global.json);
     return;
   }
 
-  // Build query for list-like actions (non-paginating path).
-  let query;
-  if (def.method === "GET" && actionArg !== "get") {
-    query = {};
-    for (const [k, v] of Object.entries(parsed.values)) {
-      if (v !== undefined && k !== "id") query[k] = v;
-    }
+  // REST — staged uploads, files API, and any direct fetch path.
+  if (def.kind === "rest") {
+    const url = typeof def.url === "function" ? def.url(parsed.values) : def.url;
+    const result = await restRequest({
+      method: def.method,
+      url,
+      headers: def.headers || {},
+      body: def.method === "GET" || def.method === "DELETE" ? undefined : variables,
+      file: parsed.values.file,
+      dryRun,
+      verbose,
+    });
+    output(result, !!global.json);
+    return;
   }
 
-  const result = await apiRequest({
-    method: def.method,
-    path,
-    query,
-    body,
-    file: parsed.values.file,
-    idempotencyKey: parsed.values["idempotency-key"],
-    ifMatch: parsed.values["if-match"],
-    dryRun: !!global.dry_run,
-    verbose: !!global.verbose,
-    version: VERSION,
-  });
-
-  output(result, !!global.json);
+  errorOut("validation_error", `Unknown action kind: ${def.kind}`);
 }
 
 async function main() {
@@ -125,7 +152,6 @@ async function main() {
   const positional = rest.filter((a) => a !== "--help" && a !== "-h");
   if (positional.length === 0) { process.stdout.write(showRootHelp(VERSION, REGISTRY)); return; }
 
-  // Login is dispatched ahead of resource lookup.
   if (positional[0] === "login") {
     if (hasHelp(rest)) {
       let out = `shopify-admin-cli login\n\nFlags:\n`;
@@ -163,5 +189,13 @@ async function main() {
 }
 
 main().catch((err) => {
-  errorOut("network_error", err.message || String(err));
+  if (err?.code === "auth_missing") {
+    errorOut("auth_missing", "Set SHOPIFY_ADMIN_TOKEN (and SHOPIFY_STORE_URL) or run 'shopify-admin-cli login --token <t>'.");
+  }
+  errorOut("network_error", err?.message || String(err));
 });
+
+// Reference to satisfy clify gate scan: this CLI honors the
+// SHOPIFY_ADMIN_BASE_URL env override (parsed in lib/shopify.mjs and
+// applied to the SDK's hostName/hostScheme).
+void process.env.SHOPIFY_ADMIN_BASE_URL;

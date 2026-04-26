@@ -1,6 +1,6 @@
 ---
 name: shopify-admin-cli-knowledge
-description: Capture and consult business rules and runtime quirks for the Shopify Admin API. Use when the user asks "what are the gotchas with this API?" or wants to record a finding that should persist across sessions.
+description: Capture and consult Shopify-specific business rules, gotchas, and patterns while using shopify-admin-cli. Use when the user asks "what are the gotchas with this API?", "how does cost throttling work?", "why is my refund failing idempotency?", or wants to record a new finding from a live Shopify run. Triggers on "shopify gotcha", "shopify quirk", "shopify cost", "shopify deprecated", "shopify business rule".
 allowed-tools:
   - Read
   - Write
@@ -8,39 +8,55 @@ allowed-tools:
 
 # shopify-admin-cli-knowledge
 
-API knowledge for Shopify Admin lives under `knowledge/`. Each file has YAML frontmatter and a free-form body.
+Knowledge base for Shopify Admin GraphQL API quirks, business rules, and patterns. Knowledge files live in `knowledge/` at the repo root.
 
-## When to read
+## Read these before mutating anything
 
-Before any non-trivial workflow, read every file in `knowledge/`. The files are small by design — meant to be read in full, not searched.
+| File | Topic |
+|---|---|
+| `knowledge/cost-based-throttling.md` | GraphQL leaky-bucket rate limiting; `extensions.cost`; retry with backoff |
+| `knowledge/cursor-pagination.md` | `pageInfo.endCursor` + `hasNextPage` traversal |
+| `knowledge/gid-format.md` | All ids are global IDs (`gid://shopify/Order/12345`) |
+| `knowledge/idempotency-refunds.md` | `--idempotency-key` on refunds; double-refund risk on retry |
+| `knowledge/productset-vs-productupdate.md` | Full replace vs partial — silent field drop on misuse |
+| `knowledge/order-editing-three-phase.md` | begin → stage → commit; never raw `orderUpdate` for line items |
+| `knowledge/staged-uploads.md` | `stagedUploadsCreate` → multipart POST → `fileCreate` |
+| `knowledge/bulk-operations.md` | Async lifecycle; JSONL output; one bulk op per query/mutation type at a time |
+| `knowledge/b2b-plus-only.md` | B2B features (companies, catalogs, payment terms) require Plus |
+| `knowledge/api-versions.md` | Quarterly release cadence; deprecation calendar; how to bump |
+| `knowledge/why-official-sdk.md` | Why this CLI uses `@shopify/shopify-api` instead of zero-dep fetch |
+| `knowledge/rate-limit.md` | Generic rate-limit primer (legacy stencil) |
+| `knowledge/idempotency-keys.md` | Generic idempotency primer (legacy stencil) |
+| `knowledge/composite-orders.md` | Generic composite-resource pattern (legacy stencil) |
 
-## When to write
+## How to add a new knowledge file
 
-After a workflow surfaces a non-obvious finding (an undocumented constraint, a sequencing requirement, a plan-tier limit, an enum value not in the OpenAPI spec), append a new file. Filename: `knowledge/<short-topic>.md`. Frontmatter:
+When you discover a new gotcha or pattern from a live run, append a new file with this frontmatter:
 
 ```yaml
 ---
+title: "Short title"
 type: gotcha | pattern | shortcut | quirk | business-rule
-applies-to: ["items.create", "orders.upload"]   # optional but useful
-source: docs | runtime
-confidence: high | medium | low
-extracted: 2026-04-26
+discovered: YYYY-MM-DD
+sources:
+  - url-or-doc-reference
 ---
 ```
 
-Body: prose. Cite the surface that produced the finding (response message, dashboard string, runtime error). Don't include API secrets.
+Then a tight body:
+- **What**: one-sentence summary
+- **Why**: the underlying cause
+- **How to apply**: when this rule kicks in and what to do
 
-## Existing knowledge
+Keep files <100 lines. Link related files via relative paths.
 
-| File | Type | Applies to |
-|---|---|---|
-| `knowledge/idempotency-keys.md` | business-rule | `items.create`, `orders.create` |
-| `knowledge/cursor-pagination.md` | pattern | every list action |
-| `knowledge/rate-limit.md` | pattern | every request |
-| `knowledge/composite-orders.md` | business-rule | `orders.create` |
+## Schema discovery
 
-## Anti-patterns
+When you don't know the right GraphQL shape, run:
 
-- ❌ Don't write nuance prose into `knowledge/` if the corresponding `.clify.json.nuances.*` field isn't set; the validation gate cross-references them.
-- ❌ Don't duplicate help text — the CLI's `--help` is the source of truth for flag shapes.
-- ❌ Don't keep stale entries. When the API changes (`clify sync-check` reports drift), prune knowledge that no longer applies.
+```bash
+shopify-admin-cli introspect type --name <TypeName> --json | jq '.fields[] | {name, type: .type.name}'
+shopify-admin-cli introspect queries --json | jq '.[] | select(.name | startswith("order"))'
+```
+
+Faster than reading docs for one-off lookups; always up-to-date with the live schema.

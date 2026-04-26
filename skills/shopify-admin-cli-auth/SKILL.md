@@ -1,6 +1,6 @@
 ---
 name: shopify-admin-cli-auth
-description: Manage authentication for the Shopify Admin API via shopify-admin-cli login. Use when the user asks how to authenticate, sign in, store/refresh credentials, or troubleshoot 401/403 errors.
+description: Authenticate shopify-admin-cli with a Shopify custom-app admin API access token. Use when the user asks how to set up auth, mint a token, configure scopes, troubleshoot 401/403 errors, or rotate credentials. Triggers on "shopify auth", "admin token", "shpat_", "custom app", "API scopes", "private app".
 allowed-tools:
   - Bash
   - Read
@@ -8,42 +8,85 @@ allowed-tools:
 
 # shopify-admin-cli-auth
 
-Manage credentials for `shopify-admin-cli`. The Shopify Admin API uses bearer-token auth.
+`shopify-admin-cli` authenticates via the **custom-app admin API access token** flow. No OAuth, no session storage, no embedded-app machinery. The token is a long-lived secret minted from the Shopify admin UI; the CLI sends it as the `X-Shopify-Access-Token` header on every request.
 
-## Where the token lives
+## How to mint a token
 
-`shopify-admin-cli` reads its token in this order:
+1. Shopify admin → **Settings → Apps and sales channels → Develop apps**.
+2. Create an app (or select an existing one). The app does not need to be installable; it is "private" / "custom" to the store.
+3. **Configure Admin API scopes** — pick the minimum set the CLI will need (see "Scopes" below).
+4. **Install app** → click **Reveal token once** → copy `shpat_...`. Store in your password manager; you will not see it again.
 
-1. `SHOPIFY_ADMIN_API_KEY` from the environment (or `.env`).
-2. The `token` field of `~/.config/shopify-admin-cli/credentials.json`, written by `shopify-admin-cli login`.
+## Configure the CLI
 
-If neither is set, every command fails with `auth_missing`.
-
-## Login
-
+```bash
+export SHOPIFY_STORE_URL=your-store.myshopify.com
+export SHOPIFY_ADMIN_TOKEN=shpat_...
+shopify-admin-cli shop info --json
 ```
-shopify-admin-cli login --token <value>
-```
 
-Stores the token at `~/.config/shopify-admin-cli/credentials.json` (mode 0600).
+If the token is valid you see the shop name + plan. If not, you'll get one of:
 
-```
+| Error code | Cause | Fix |
+|---|---|---|
+| `auth_missing` | Env var unset and no persisted credentials | Set `SHOPIFY_ADMIN_TOKEN` |
+| `auth_invalid` | Token expired/revoked or wrong store | Re-mint token; verify `SHOPIFY_STORE_URL` matches |
+| `forbidden` | Token lacks the scope the operation needs | Reinstall the app with the missing scope |
+
+## Persisted credentials
+
+Alternatively, `shopify-admin-cli login --token shpat_...` stores the token at `~/.config/shopify-admin-cli/credentials.json` (mode 0600). The env var always wins over the persisted token.
+
+```bash
+shopify-admin-cli login --token shpat_xxxxx
 shopify-admin-cli login --status --json
+# { "scheme":"api-key-header","envVar":"SHOPIFY_ADMIN_TOKEN","header":"X-Shopify-Access-Token","fromEnv":false,"fromConfig":true,"authenticated":true }
 ```
 
-Reports `{ scheme, envVar, fromEnv, fromConfig, authenticated }` so you can see which source is providing auth.
+## Scopes
 
-## Errors and remediation
+The CLI does not introspect what scopes you need — Shopify enforces them per operation. Useful starting set for typical e-commerce automation:
 
-| Code | HTTP | Likely cause | Action |
-|---|---|---|---|
-| `auth_missing` | — | No env var set, no stored credentials | Set `SHOPIFY_ADMIN_API_KEY` or run `login` |
-| `auth_invalid` | 401 | Token rejected by server | Reissue from the dashboard, run `login` again |
-| `forbidden` | 403 | Token valid but lacks the required scope | Check the dashboard's scope settings |
+- `read_products`, `write_products`
+- `read_orders`, `write_orders`
+- `read_customers`, `write_customers`
+- `read_inventory`, `write_inventory`
+- `read_locations`
+- `read_fulfillments`, `write_fulfillments`
+- `read_shipping`
+- `read_discounts`, `write_discounts`
+- `read_files`, `write_files`
+- `read_returns`, `write_returns`
 
-The CLI does not retry auth errors. If `auth_invalid` is intermittent, the token has likely been rotated and a new one needs to be obtained.
+Add `read_marketing_events`, `read_customer_events`, `read_metaobjects`, `write_metaobjects` if you're working with those surfaces. For B2B Plus features, scopes are gated on the Plus plan.
 
-## Anti-patterns
+To check what your token actually has:
 
-- ❌ Don't paste tokens into source files. The validation gate scans for them.
-- ❌ Don't share `~/.config/shopify-admin-cli/credentials.json` between machines — re-run `login` per machine.
+```bash
+shopify-admin-cli shop scopes --json
+```
+
+## API version pinning
+
+The CLI pins to API version `2026-01` (in `lib/shopify.mjs`). To bump:
+
+1. Check Shopify's deprecation calendar at https://shopify.dev/docs/api/usage/versioning
+2. Edit `lib/shopify.mjs` → `API_VERSION = ApiVersion.April26` (or the next stable identifier from `@shopify/shopify-api`).
+3. Update `.clify.json.defaults.apiVersion`.
+4. Run integration tests against the new version.
+
+See `knowledge/api-versions.md` for the cadence.
+
+## Why a static token (and not OAuth)
+
+The CLI runs from a developer's laptop or a CI/cron context — there's no browser to complete an OAuth callback, no embedded-app frame, no merchant-installation flow. Custom-app tokens are exactly the right shape: long-lived, scope-gated, revocable from the admin UI. See `knowledge/why-official-sdk.md` for context on how `@shopify/shopify-api` handles this.
+
+## Rotation
+
+1. Mint a new token in the admin UI (Develop apps → app → Reveal token).
+2. Update `SHOPIFY_ADMIN_TOKEN` in your env / `.env` / secret store.
+3. The previous token can stay alive for a grace period; revoke from the same UI when the new one is verified.
+
+## Cloud / scheduled triggers
+
+For agents running in a cloud sandbox (no `.env` file present), inject `SHOPIFY_STORE_URL` and `SHOPIFY_ADMIN_TOKEN` as process env vars. The CLI's loader is env-first — see `lib/env.mjs` and the project-level `CLAUDE.md` "Environment and credentials" section.

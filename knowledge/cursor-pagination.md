@@ -1,19 +1,22 @@
 ---
+title: "Cursor pagination via pageInfo"
 type: pattern
-source: docs
-extracted: 2026-04-26
-confidence: high
-applies-to: ["items.list", "item-variants.list", "orders.list"]
+source: shopify-docs
+discovered: 2026-04-26
+applies-to: ["products.list", "orders.list", "customers.list", "collections.list", "draft-orders.list", "returns.list", "files.list", "discounts.list", "webhooks.list", "inventory.locations-list", "customers.segments-list"]
 ---
 
-Every `list` action paginates via opaque cursors. Response shape:
+Shopify Admin GraphQL paginates connection fields via `pageInfo`:
 
-```json
-{ "items": [ ... ], "nextCursor": "<opaque-string>" | null }
+```graphql
+products(first: 50, after: $cursor) {
+  nodes { id title }
+  pageInfo { hasNextPage endCursor }
+}
 ```
 
-When `nextCursor` is null or absent, iteration is complete. Otherwise pass it back as `--cursor <value>` to fetch the next page.
+The CLI's `--all` flag walks all pages by feeding back `pageInfo.endCursor` as the next `after` until `hasNextPage` is false. The combined array is emitted at the end.
 
-The CLI's `--all` flag automates this loop — it concatenates pages and emits the combined array. Use `--all` for small/medium datasets where you want the whole list in memory; for very large datasets, page manually with `--cursor` so you can checkpoint between batches.
+For very large datasets, use `bulk query` instead — the Bulk Operations API runs the query asynchronously and returns a JSONL file with no pagination at all. See `bulk-operations.md`.
 
-Cursors are not stable across schema migrations: a cursor obtained yesterday may return `400 validation_error` today. Treat cursors as ephemeral within a session.
+Cursors are not stable across API version upgrades. Treat them as ephemeral within a session.

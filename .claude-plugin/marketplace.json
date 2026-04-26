@@ -1,7 +1,7 @@
 {
   "name": "shopify-admin-cli",
-  "description": "Generic stencil for the clify scaffolder. Inspired structurally by google/agents-cli; hand-crafted, fully tested, and fictional.",
+  "description": "Agent-friendly CLI for the Shopify Admin GraphQL API. Wraps @shopify/shopify-api in custom-app mode.",
   "version": "0.1.0",
-  "author": { "name": "clify" },
+  "author": { "name": "shopify-admin-cli" },
   "source": "./"
 }

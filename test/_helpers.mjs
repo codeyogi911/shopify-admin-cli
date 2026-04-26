@@ -10,9 +10,14 @@ export const CLI = resolve(REPO_ROOT, "bin/shopify-admin-cli.mjs");
 
 export function run(args = [], { env = {}, timeoutMs = 10000 } = {}) {
   return new Promise((resolveRun) => {
-    const cleanEnv = { ...process.env, ...env };
-    delete cleanEnv.SHOPIFY_ADMIN_API_KEY;
-    if (env.SHOPIFY_ADMIN_API_KEY !== undefined) cleanEnv.SHOPIFY_ADMIN_API_KEY = env.SHOPIFY_ADMIN_API_KEY;
+    // Start from a baseline that strips any token leaking from the host
+    // env, then layer the test's overrides on top.
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.SHOPIFY_ADMIN_TOKEN;
+    delete cleanEnv.SHOPIFY_ADMIN_API_KEY;   // legacy (exemplar) name
+    delete cleanEnv.SHOPIFY_STORE_URL;
+    delete cleanEnv.SHOPIFY_ADMIN_BASE_URL;
+    Object.assign(cleanEnv, env);
     cleanEnv.__SHOPIFY_ADMIN_FORCE_JSON_ERR = "1";
     const child = spawn(process.execPath, [CLI, ...args], { env: cleanEnv });
     let stdout = "", stderr = "";

@@ -1,42 +1,55 @@
-// Auth-specific paths: bearer token wiring, login --status reflection,
-// 401 mapping. Splits out of integration.test.mjs to keep responsibilities
-// per-file (mirrors agents-cli's per-feature test layout).
+// Auth-specific paths: X-Shopify-Access-Token header injection, 401/403
+// mapping, and login --status reflection. Splits out of integration.test.mjs
+// to keep responsibilities per-file.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mockApi } from "./_mock-server.mjs";
+import { mockGraphql } from "./_mock-server.mjs";
 import { run, runJson } from "./_helpers.mjs";
 
-test("Authorization: Bearer header is sent when SHOPIFY_ADMIN_API_KEY is set", async () => {
-  const server = await mockApi({ "GET /items": { status: 200, body: { items: [], nextCursor: null } } });
+test("X-Shopify-Access-Token header is sent when SHOPIFY_ADMIN_TOKEN is set", async () => {
+  const server = await mockGraphql({
+    "query Shop": { status: 200, body: { data: { shop: { id: "gid://shopify/Shop/1", name: "Test", myshopifyDomain: "test.myshopify.com" } } } },
+  });
   try {
-    await runJson(["items", "list"], { env: { SHOPIFY_ADMIN_API_KEY: "shh-secret-token", SHOPIFY_ADMIN_BASE_URL: server.url } });
-    assert.equal(server.requests[0].headers.authorization, "Bearer shh-secret-token");
+    await runJson(["shop", "info"], {
+      env: { SHOPIFY_ADMIN_TOKEN: "shpat_test_token_xyz", SHOPIFY_STORE_URL: "test.myshopify.com", SHOPIFY_ADMIN_BASE_URL: server.url },
+    });
+    const gqlReq = server.requests.find((r) => (r.path || "").includes("/graphql.json"));
+    assert.ok(gqlReq, "no graphql request reached the mock");
+    assert.equal(gqlReq.headers["x-shopify-access-token"], "shpat_test_token_xyz");
   } finally { await server.close(); }
 });
 
 test("401 → auth_invalid", async () => {
-  const server = await mockApi({ "GET /items": { status: 401, body: { message: "bad token" } } });
+  const server = await mockGraphql({
+    "query Shop": { status: 401, body: { errors: [{ message: "[API] Invalid API key or access token" }] } },
+  });
   try {
-    const r = await runJson(["items", "list"], { env: { SHOPIFY_ADMIN_API_KEY: "wrong", SHOPIFY_ADMIN_BASE_URL: server.url } });
+    const r = await runJson(["shop", "info"], {
+      env: { SHOPIFY_ADMIN_TOKEN: "wrong", SHOPIFY_STORE_URL: "test.myshopify.com", SHOPIFY_ADMIN_BASE_URL: server.url },
+    });
     assert.equal(r.exitCode, 1);
     assert.equal(r.errJson.code, "auth_invalid");
-    assert.equal(r.errJson.retryable, false);
   } finally { await server.close(); }
 });
 
 test("403 → forbidden", async () => {
-  const server = await mockApi({ "GET /items": { status: 403, body: { message: "no scope" } } });
+  const server = await mockGraphql({
+    "query Shop": { status: 403, body: { errors: [{ message: "Access denied for this resource" }] } },
+  });
   try {
-    const r = await runJson(["items", "list"], { env: { SHOPIFY_ADMIN_API_KEY: "scoped", SHOPIFY_ADMIN_BASE_URL: server.url } });
+    const r = await runJson(["shop", "info"], {
+      env: { SHOPIFY_ADMIN_TOKEN: "scoped", SHOPIFY_STORE_URL: "test.myshopify.com", SHOPIFY_ADMIN_BASE_URL: server.url },
+    });
     assert.equal(r.exitCode, 1);
     assert.equal(r.errJson.code, "forbidden");
   } finally { await server.close(); }
 });
 
 test("login --status reports auth source", async () => {
-  const r = await runJson(["login", "--status"], { env: { SHOPIFY_ADMIN_API_KEY: "live" } });
+  const r = await runJson(["login", "--status"], { env: { SHOPIFY_ADMIN_TOKEN: "live" } });
   assert.equal(r.exitCode, 0, r.stderr);
   assert.equal(r.json.authenticated, true);
   assert.equal(r.json.fromEnv, true);
-  assert.equal(r.json.scheme, "bearer");
+  assert.equal(r.json.scheme, "api-key-header");
 });

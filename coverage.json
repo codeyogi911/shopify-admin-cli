@@ -1,19 +1,101 @@
 {
   "parsedAt": "2026-04-26T00:00:00Z",
-  "totalParsed": 11,
-  "totalIncluded": 11,
+  "totalParsed": 77,
+  "totalIncluded": 77,
   "totalDropped": 0,
   "endpoints": [
-    { "method": "GET",    "path": "/items",                     "resource": "items",          "action": "list",   "included": true },
-    { "method": "GET",    "path": "/items/:id",                 "resource": "items",          "action": "get",    "included": true },
-    { "method": "POST",   "path": "/items",                     "resource": "items",          "action": "create", "included": true },
-    { "method": "PATCH",  "path": "/items/:id",                 "resource": "items",          "action": "update", "included": true },
-    { "method": "DELETE", "path": "/items/:id",                 "resource": "items",          "action": "delete", "included": true },
-    { "method": "GET",    "path": "/items/:itemId/variants",    "resource": "item-variants",  "action": "list",   "included": true },
-    { "method": "POST",   "path": "/items/:itemId/variants",    "resource": "item-variants",  "action": "create", "included": true },
-    { "method": "GET",    "path": "/orders",                    "resource": "orders",         "action": "list",   "included": true },
-    { "method": "GET",    "path": "/orders/:id",                "resource": "orders",         "action": "get",    "included": true },
-    { "method": "POST",   "path": "/orders",                    "resource": "orders",         "action": "create", "included": true },
-    { "method": "POST",   "path": "/orders/:id/upload",         "resource": "orders",         "action": "upload", "included": true }
+    {"method": "POST", "path": "/graphql.json#products.list", "resource": "products", "action": "list", "included": true},
+    {"method": "POST", "path": "/graphql.json#products.get", "resource": "products", "action": "get", "included": true},
+    {"method": "POST", "path": "/graphql.json#products.create", "resource": "products", "action": "create", "included": true},
+    {"method": "POST", "path": "/graphql.json#products.update", "resource": "products", "action": "update", "included": true},
+    {"method": "POST", "path": "/graphql.json#products.set", "resource": "products", "action": "set", "included": true},
+    {"method": "POST", "path": "/graphql.json#products.delete", "resource": "products", "action": "delete", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#orders.list", "resource": "orders", "action": "list", "included": true},
+    {"method": "POST", "path": "/graphql.json#orders.get", "resource": "orders", "action": "get", "included": true},
+    {"method": "POST", "path": "/graphql.json#orders.cancel", "resource": "orders", "action": "cancel", "included": true},
+    {"method": "POST", "path": "/graphql.json#orders.close", "resource": "orders", "action": "close", "included": true},
+    {"method": "POST", "path": "/graphql.json#orders.reopen", "resource": "orders", "action": "reopen", "included": true},
+    {"method": "POST", "path": "/graphql.json#orders.edit-begin", "resource": "orders", "action": "edit-begin", "included": true},
+    {"method": "POST", "path": "/graphql.json#orders.edit-stage", "resource": "orders", "action": "edit-stage", "included": true},
+    {"method": "POST", "path": "/graphql.json#orders.edit-commit", "resource": "orders", "action": "edit-commit", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#customers.list", "resource": "customers", "action": "list", "included": true},
+    {"method": "POST", "path": "/graphql.json#customers.get", "resource": "customers", "action": "get", "included": true},
+    {"method": "POST", "path": "/graphql.json#customers.search", "resource": "customers", "action": "search", "included": true},
+    {"method": "POST", "path": "/graphql.json#customers.create", "resource": "customers", "action": "create", "included": true},
+    {"method": "POST", "path": "/graphql.json#customers.update", "resource": "customers", "action": "update", "included": true},
+    {"method": "POST", "path": "/graphql.json#customers.delete", "resource": "customers", "action": "delete", "included": true},
+    {"method": "POST", "path": "/graphql.json#customers.segments-list", "resource": "customers", "action": "segments-list", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#inventory.levels-list", "resource": "inventory", "action": "levels-list", "included": true},
+    {"method": "POST", "path": "/graphql.json#inventory.locations-list", "resource": "inventory", "action": "locations-list", "included": true},
+    {"method": "POST", "path": "/graphql.json#inventory.adjust", "resource": "inventory", "action": "adjust", "included": true},
+    {"method": "POST", "path": "/graphql.json#inventory.set", "resource": "inventory", "action": "set", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#collections.list", "resource": "collections", "action": "list", "included": true},
+    {"method": "POST", "path": "/graphql.json#collections.get", "resource": "collections", "action": "get", "included": true},
+    {"method": "POST", "path": "/graphql.json#collections.create", "resource": "collections", "action": "create", "included": true},
+    {"method": "POST", "path": "/graphql.json#collections.update", "resource": "collections", "action": "update", "included": true},
+    {"method": "POST", "path": "/graphql.json#collections.products-add", "resource": "collections", "action": "products-add", "included": true},
+    {"method": "POST", "path": "/graphql.json#collections.products-remove", "resource": "collections", "action": "products-remove", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#discounts.list", "resource": "discounts", "action": "list", "included": true},
+    {"method": "POST", "path": "/graphql.json#discounts.get", "resource": "discounts", "action": "get", "included": true},
+    {"method": "POST", "path": "/graphql.json#discounts.create-code", "resource": "discounts", "action": "create-code", "included": true},
+    {"method": "POST", "path": "/graphql.json#discounts.create-automatic", "resource": "discounts", "action": "create-automatic", "included": true},
+    {"method": "POST", "path": "/graphql.json#discounts.deactivate", "resource": "discounts", "action": "deactivate", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#metafields.list", "resource": "metafields", "action": "list", "included": true},
+    {"method": "POST", "path": "/graphql.json#metafields.get", "resource": "metafields", "action": "get", "included": true},
+    {"method": "POST", "path": "/graphql.json#metafields.set", "resource": "metafields", "action": "set", "included": true},
+    {"method": "POST", "path": "/graphql.json#metafields.delete", "resource": "metafields", "action": "delete", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#fulfillment.create", "resource": "fulfillment", "action": "create", "included": true},
+    {"method": "POST", "path": "/graphql.json#fulfillment.update-tracking", "resource": "fulfillment", "action": "update-tracking", "included": true},
+    {"method": "POST", "path": "/graphql.json#fulfillment.cancel", "resource": "fulfillment", "action": "cancel", "included": true},
+    {"method": "POST", "path": "/graphql.json#fulfillment.hold", "resource": "fulfillment", "action": "hold", "included": true},
+    {"method": "POST", "path": "/graphql.json#fulfillment.release", "resource": "fulfillment", "action": "release", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#refunds.preview", "resource": "refunds", "action": "preview", "included": true},
+    {"method": "POST", "path": "/graphql.json#refunds.create", "resource": "refunds", "action": "create", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#draft-orders.list", "resource": "draft-orders", "action": "list", "included": true},
+    {"method": "POST", "path": "/graphql.json#draft-orders.get", "resource": "draft-orders", "action": "get", "included": true},
+    {"method": "POST", "path": "/graphql.json#draft-orders.create", "resource": "draft-orders", "action": "create", "included": true},
+    {"method": "POST", "path": "/graphql.json#draft-orders.update", "resource": "draft-orders", "action": "update", "included": true},
+    {"method": "POST", "path": "/graphql.json#draft-orders.complete", "resource": "draft-orders", "action": "complete", "included": true},
+    {"method": "POST", "path": "/graphql.json#draft-orders.send-invoice", "resource": "draft-orders", "action": "send-invoice", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#returns.list", "resource": "returns", "action": "list", "included": true},
+    {"method": "POST", "path": "/graphql.json#returns.request", "resource": "returns", "action": "request", "included": true},
+    {"method": "POST", "path": "/graphql.json#returns.approve", "resource": "returns", "action": "approve", "included": true},
+    {"method": "POST", "path": "/graphql.json#returns.decline", "resource": "returns", "action": "decline", "included": true},
+    {"method": "POST", "path": "/graphql.json#returns.refund", "resource": "returns", "action": "refund", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#files.list", "resource": "files", "action": "list", "included": true},
+    {"method": "POST", "path": "/graphql.json#files.upload", "resource": "files", "action": "upload", "included": true},
+    {"method": "POST", "path": "/graphql.json#files.delete", "resource": "files", "action": "delete", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#webhooks.list", "resource": "webhooks", "action": "list", "included": true},
+    {"method": "POST", "path": "/graphql.json#webhooks.create", "resource": "webhooks", "action": "create", "included": true},
+    {"method": "POST", "path": "/graphql.json#webhooks.delete", "resource": "webhooks", "action": "delete", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#bulk.query", "resource": "bulk", "action": "query", "included": true},
+    {"method": "POST", "path": "/graphql.json#bulk.query-status", "resource": "bulk", "action": "query-status", "included": true},
+    {"method": "POST", "path": "/graphql.json#bulk.query-cancel", "resource": "bulk", "action": "query-cancel", "included": true},
+    {"method": "POST", "path": "/graphql.json#bulk.mutation", "resource": "bulk", "action": "mutation", "included": true},
+    {"method": "POST", "path": "/graphql.json#bulk.mutation-status", "resource": "bulk", "action": "mutation-status", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#gql.run", "resource": "gql", "action": "run", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#introspect.full", "resource": "introspect", "action": "full", "included": true},
+    {"method": "POST", "path": "/graphql.json#introspect.type", "resource": "introspect", "action": "type", "included": true},
+    {"method": "POST", "path": "/graphql.json#introspect.queries", "resource": "introspect", "action": "queries", "included": true},
+    {"method": "POST", "path": "/graphql.json#introspect.mutations", "resource": "introspect", "action": "mutations", "included": true},
+
+    {"method": "POST", "path": "/graphql.json#shop.info", "resource": "shop", "action": "info", "included": true},
+    {"method": "POST", "path": "/graphql.json#shop.scopes", "resource": "shop", "action": "scopes", "included": true},
+    {"method": "POST", "path": "/graphql.json#shop.rate-limit", "resource": "shop", "action": "rate-limit", "included": true}
   ]
 }

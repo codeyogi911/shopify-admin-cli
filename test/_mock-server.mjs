@@ -1,98 +1,87 @@
-// Zero-dep HTTP mock for integration tests.
-// Contract: see references/conventions.md "Mock Server Contract".
+// GraphQL-aware mock server for shopify-admin-cli integration tests.
+// Routes:
+//   - POST /admin/api/<version>/graphql.json    — handler dispatched by operation name match
+//   - POST <stagedUploadUrl>                    — multipart catch-all for staged uploads
 import { createServer } from "node:http";
 
-export async function mockApi(routes) {
+export async function mockGraphql(handlers, opts = {}) {
+  const { stagedUploadHandler } = opts;
   const requests = [];
 
   const server = createServer(async (req, res) => {
     const chunks = [];
     for await (const c of req) chunks.push(c);
-    const raw = Buffer.concat(chunks).toString("utf8");
+    const raw = Buffer.concat(chunks);
     const ct = (req.headers["content-type"] || "").toLowerCase();
-    let body = raw;
-    if (ct.includes("application/json") && raw) {
-      try { body = JSON.parse(raw); } catch { /* leave as string */ }
+
+    let body = raw.toString("utf8");
+    if (ct.includes("application/json") && body) {
+      try { body = JSON.parse(body); } catch {}
     }
 
-    const urlObj = new URL(req.url, "http://placeholder");
-    const path = urlObj.pathname;
     const captured = {
       method: req.method,
-      path,
-      query: Object.fromEntries(urlObj.searchParams.entries()),
+      path: req.url,
       headers: { ...req.headers },
       body,
       raw,
+      contentType: ct,
     };
     requests.push(captured);
 
-    const match = matchRoute(routes, req.method, path);
-    if (!match) {
-      res.writeHead(404, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: "no mock route", method: req.method, path }));
+    // Staged-upload catch-all (multipart/form-data target).
+    if (req.method === "POST" && ct.includes("multipart/form-data") && stagedUploadHandler) {
+      const result = await stagedUploadHandler(captured);
+      res.writeHead(result.status ?? 201, { "content-type": "application/xml" });
+      res.end(result.body || "<PostResponse></PostResponse>");
       return;
     }
 
-    let result = match.handler;
-    if (typeof result === "function") {
-      result = await result(captured, match.params);
+    // GraphQL endpoint.
+    if (req.method === "POST" && req.url.includes("/graphql.json")) {
+      const op = typeof body === "object" ? body.query : "";
+      const handler = pickHandler(handlers, op);
+      if (!handler) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(JSON.stringify({ errors: [{ message: "no mock handler matched" }] }));
+        return;
+      }
+      const result = typeof handler === "function" ? await handler(captured) : handler;
+      const status = result.status ?? 200;
+      const headers = { "content-type": "application/json", ...(result.headers || {}) };
+      res.writeHead(status, headers);
+      res.end(typeof result.body === "string" ? result.body : JSON.stringify(result.body ?? null));
+      return;
     }
 
-    const status = result.status ?? 200;
-    const headers = { "content-type": "application/json", ...(result.headers || {}) };
-    res.writeHead(status, headers);
-    if (result.body === undefined || result.body === null) {
-      res.end();
-    } else if (typeof result.body === "string") {
-      res.end(result.body);
-    } else {
-      res.end(JSON.stringify(result.body));
-    }
+    res.writeHead(404, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "unmatched route", method: req.method, path: req.url }));
   });
 
-  await new Promise((resolveListen, rejectListen) => {
-    server.once("error", rejectListen);
-    server.listen(0, "127.0.0.1", () => {
-      server.removeListener("error", rejectListen);
-      resolveListen();
-    });
+  await new Promise((r, rj) => {
+    server.once("error", rj);
+    server.listen(0, "127.0.0.1", () => { server.removeListener("error", rj); r(); });
   });
 
   const addr = server.address();
-  const url = `http://127.0.0.1:${addr.port}`;
-
   return {
-    url,
+    url: `http://127.0.0.1:${addr.port}`,
     requests,
-    async close() {
-      server.closeAllConnections?.();
-      await new Promise((r) => server.close(() => r()));
-    },
+    async close() { server.closeAllConnections?.(); await new Promise((r) => server.close(() => r())); },
   };
 }
 
-function matchRoute(routes, method, path) {
-  for (const [key, handler] of Object.entries(routes)) {
-    const [routeMethod, routePath] = key.split(/\s+/);
-    if (routeMethod !== method) continue;
-    const params = matchPath(routePath, path);
-    if (params) return { handler, params };
+// Pick a handler by trying each pattern as a substring of the GraphQL
+// operation. First match wins. Patterns can be operation names ("Orders"),
+// mutation names ("RefundCreate"), or any unique substring.
+function pickHandler(handlers, query) {
+  if (!query) return null;
+  for (const [pattern, handler] of Object.entries(handlers)) {
+    if (query.includes(pattern)) return handler;
   }
-  return null;
+  return handlers["__default__"] || null;
 }
 
-function matchPath(template, actual) {
-  const tParts = template.split("/").filter(Boolean);
-  const aParts = actual.split("/").filter(Boolean);
-  if (tParts.length !== aParts.length) return null;
-  const params = {};
-  for (let i = 0; i < tParts.length; i++) {
-    if (tParts[i].startsWith(":")) {
-      params[tParts[i].slice(1)] = decodeURIComponent(aParts[i]);
-    } else if (tParts[i] !== aParts[i]) {
-      return null;
-    }
-  }
-  return params;
-}
+// Back-compat: the old mockApi shape (REST per-route) is kept so existing
+// tests can be migrated incrementally. New tests should use mockGraphql.
+export { mockGraphql as mockApi };
