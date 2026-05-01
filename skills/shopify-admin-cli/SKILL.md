@@ -1,34 +1,18 @@
 ---
 name: shopify-admin-cli
-description: Drive end-to-end workflows on the Shopify Admin GraphQL API via shopify-admin-cli. Use whenever the user asks to list, get, create, update, delete, search, refund, fulfill, upload files, introspect schema, or run bulk operations against Shopify products, orders, customers, inventory, collections, discounts, metafields, returns, webhooks, or raw GraphQL. Also use when the user needs auth setup, scope guidance, or Shopify-specific gotchas before making changes.
-allowed-tools:
-  - Bash
-  - Read
-  - Write
+description: >-
+  Runs Shopify Admin GraphQL workflows via the shopify-admin-cli binary (custom-app admin token, no OAuth): products, orders, customers, inventory, collections, discounts, metafields, fulfillment, refunds, draft-orders, returns, files, webhooks, bulk operations, raw gql, schema introspection, and shop metadata. Use for Shopify store automation, Admin API tasks, CLI usage, token/scopes help, or mutation safety (throttling, GIDs, refunds, order edits, staged uploads).
 ---
 
 # shopify-admin-cli
 
-Use `shopify-admin-cli` as the agent-facing wrapper around the Shopify Admin
-GraphQL API. The CLI uses `@shopify/shopify-api` in custom-app mode with a
-static admin token. One resource x one action maps to one GraphQL operation.
+Machine-facing CLI over the [Shopify Admin GraphQL API](https://shopify.dev/docs/api/admin-graphql): `@shopify/shopify-api` in custom-app mode. One resource × one action → one GraphQL call.
 
-## When to use
+**Commands:** `products`, `orders`, `customers`, `inventory`, `collections`, `discounts`, `metafields`, `fulfillment`, `refunds`, `draft-orders`, `returns`, `files`, `webhooks`, `bulk`, `gql`, `introspect`, `shop`.
 
-Use this skill whenever the user asks to:
+## Install skill
 
-- manage Shopify `products`, `orders`, `customers`, `inventory`,
-  `collections`, `discounts`, `metafields`, `fulfillment`, `refunds`,
-  `draft-orders`, `returns`, `files`, or `webhooks`
-- run a Shopify bulk query or bulk mutation workflow
-- introspect the Shopify Admin GraphQL schema
-- run raw Shopify GraphQL
-- configure auth, scopes, token rotation, or troubleshoot 401/403 failures
-- explain Shopify-specific gotchas before or during a workflow
-
-## Install this skill
-
-Use the [`skills` npm package](https://www.npmjs.com/package/skills) ([vercel-labs/skills](https://github.com/vercel-labs/skills)) — run it with **`npx skills`** (no manual copy from this repo required):
+Published installer: [`skills` on npm](https://www.npmjs.com/package/skills) · [vercel-labs/skills](https://github.com/vercel-labs/skills).
 
 ```bash
 npx --yes skills@latest add codeyogi911/shopify-admin-cli --skill shopify-admin-cli
@@ -38,36 +22,25 @@ npx --yes skills@latest add codeyogi911/shopify-admin-cli --skill shopify-admin-
 npx --yes skills@latest add https://github.com/codeyogi911/shopify-admin-cli/tree/main/skills/shopify-admin-cli
 ```
 
-Use the same `<owner>/<repo>` / GitHub URL if this skill was installed from a fork.
+Forks: use the same `<owner>/<repo>` and GitHub URLs consistently across skill + CLI steps below.
 
-## Install the CLI
+## Install CLI
 
-This repository’s CLI is not on the public npm registry. Install it from GitHub
-(use the same repo you installed this skill from—substitute if you use a fork):
+The binary is **not** on the public npm registry; install from the **same Git repository** as this skill.
 
 ```bash
-shopify-admin-cli --version 2>/dev/null || true
+shopify-admin-cli --version 2>/dev/null || npm install -g "git+https://github.com/codeyogi911/shopify-admin-cli.git"
 ```
 
-If that fails, pick one:
+Ephemeral use:
 
 ```bash
-# Persistent global binary
-npm install -g "git+https://github.com/codeyogi911/shopify-admin-cli.git"
-```
-
-```bash
-# No global install — prefix every invocation (example)
 npx --yes --package="git+https://github.com/codeyogi911/shopify-admin-cli.git" shopify-admin-cli shop info --json
 ```
 
-If the agent workspace includes a full checkout of this repo, `npm install` at
-the repo root and run `./node_modules/.bin/shopify-admin-cli` or
-`node bin/shopify-admin-cli.mjs`.
+Full checkout: `npm install` at repo root, then `node bin/shopify-admin-cli.mjs` or `./node_modules/.bin/shopify-admin-cli`.
 
-## Setup
-
-Authenticate with a custom-app admin API access token:
+## Authenticate
 
 ```bash
 export SHOPIFY_STORE_URL=your-store.myshopify.com
@@ -75,90 +48,41 @@ export SHOPIFY_ADMIN_TOKEN=shpat_...
 shopify-admin-cli shop info --json
 ```
 
-Read [references/auth.md](references/auth.md) when the user needs token minting,
-scope selection, persisted login behavior, API-version notes, or rotation help.
+Token minting, scopes, persisted login, rotation: [references/auth.md](references/auth.md).
 
-## Required safety pass before mutations
+## Safety before mutations
 
-Before running any mutating command, read every file in
-`references/knowledge/`. These files capture Shopify rules the CLI does not
-enforce for you, including:
-
-- cost-based throttling and rate-limit retry behavior
-- global ID formats
-- refund idempotency
-- `productSet` vs `productUpdate`
-- three-phase order edits
-- staged uploads
-- bulk-operation lifecycle
-- B2B Plus-only gating
-- `created_at:` search timezone behavior
-
-Treat those bundled files as the source of truth for mutation safety.
+Read **every** file in `references/knowledge/` before any write. The CLI does not enforce Shopify rules (cost throttling, GIDs, refund idempotency, `productSet` vs `productUpdate`, three-phase order edits, staged uploads, bulk lifecycle, B2B Plus gates, query timezone quirks).
 
 ## Workflow
 
-1. If the user needs auth help, read `references/auth.md` first.
-2. Before any mutation, read every file under `references/knowledge/`.
-3. Validate auth with:
+1. Auth questions → [references/auth.md](references/auth.md).
+2. Writes → full pass over `references/knowledge/`.
+3. Smoke-test: `shopify-admin-cli shop info --json`.
+4. Command surface / GraphQL mapping → [references/resources.md](references/resources.md).
+5. Prefer an existing CLI action over bespoke GraphQL when available.
+6. Risky changes → `--dry-run`; cost data → `--verbose`; long lists → `--all` or `bulk` flows.
 
-   ```bash
-   shopify-admin-cli shop info --json
-   ```
+**Hard rules:** Shopify GIDs only; `--idempotency-key` on `refunds create`; partial products → `products update` (reserve `products set` for full replace); line items → `orders edit-begin` → `edit-stage` → `edit-commit`; file uploads → follow staged-upload flow in knowledge.
 
-4. If you need the command surface or GraphQL mapping, read
-   [references/resources.md](references/resources.md).
-5. Prefer the purpose-built CLI action over explaining raw API docs when the
-   CLI already supports the task.
-6. Use `--dry-run` before risky or complex writes.
-7. Use `--verbose` when you need `extensions.cost` or deprecation details.
-8. Use `--all` for connection pagination, or switch to bulk operations for very
-   large reads.
+Uncertain schema shape → `shopify-admin-cli introspect type|queries|mutations`.
 
-## Quick reference
-
-Read [references/resources.md](references/resources.md) for the full resource x
-action catalogue. Common entry points:
-
-- `shopify-admin-cli shop info --json`
-- `shopify-admin-cli products list --json`
-- `shopify-admin-cli orders list --query "name:#1234" --json`
-- `shopify-admin-cli customers search --email customer@example.com --json`
-- `shopify-admin-cli files upload --file ./hero.jpg --alt "Product hero shot"`
-- `shopify-admin-cli bulk query --query-file ./bulk-orders.graphql --json`
-- `shopify-admin-cli introspect type --name Order --json`
-- `shopify-admin-cli gql run --query 'query { shop { name } }' --json`
-
-## Mutation guardrails
-
-- Always pass full Shopify GIDs such as `gid://shopify/Order/123456789`.
-- Always use `--idempotency-key` for `refunds create`.
-- Use `products update` for partial changes; reserve `products set` for
-  full-document replacement.
-- Use the order-edit flow `edit-begin` -> `edit-stage` -> `edit-commit` for
-  line-item changes.
-- Use the staged upload flow for file creation instead of inventing your own
-  upload sequence.
-- Check plan and scope assumptions before using B2B features.
-
-## Schema discovery
-
-When the right operation shape is unclear, prefer live schema discovery:
+## Examples
 
 ```bash
-shopify-admin-cli introspect type --name Order --json
-shopify-admin-cli introspect mutations --json
-shopify-admin-cli introspect queries --json
+shopify-admin-cli shop info --json
+shopify-admin-cli orders list --query "name:#1234" --first 1 --json
+shopify-admin-cli gql run --query 'query { shop { name } }' --json
 ```
 
-## Maintaining the bundled references
+Full catalogue and flags: [references/resources.md](references/resources.md).
 
-This published skill is intentionally self-contained. Its bundled reference
-files live under `references/`.
+## Maintainers (upstream repo only)
 
-When the repo-root knowledge or `skills/.internal/` shards change, refresh this
-published copy from the repository root with:
+Sync repo-root `knowledge/` into bundled `references/knowledge/`:
 
 ```bash
 npm run sync:published-skill
 ```
+
+Edit `references/auth.md` and `references/resources.md` directly when docs drift from the CLI.

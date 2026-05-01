@@ -36,6 +36,8 @@ npx --yes --package="git+https://github.com/codeyogi911/shopify-admin-cli.git" s
 
 Forks or mirrors should substitute `<owner>/<repo>` in the `npx skills add …` lines and use their own `git+https://github.com/<owner>/<repo>.git` URL for the CLI install commands above.
 
+There is **only one installable skill**: [`skills/shopify-admin-cli/`](skills/shopify-admin-cli/). The sibling path [`skills/shopify-admin/SKILL.md`](skills/shopify-admin/SKILL.md) is a **symlink** to that file so the **clify** structural validator can find the legacy layout (`skills/<name-without-cli>/`). Do not publish or install `shopify-admin` separately.
+
 ## Install from a clone (contributors)
 
 ```bash
@@ -53,7 +55,7 @@ export SHOPIFY_ADMIN_TOKEN=shpat_...        # Custom-app admin API access token
 shopify-admin-cli shop info --json          # smoke test
 ```
 
-Token minting, scopes, and persisted login are documented in the skill’s [`references/auth.md`](skills/shopify-admin-cli/references/auth.md). Maintainer-facing source for that file lives at [`skills/.internal/shopify-admin-cli-auth/SKILL.md`](skills/.internal/shopify-admin-cli-auth/SKILL.md) (refresh the published copy with `npm run sync:published-skill`).
+Token minting, scopes, and persisted login are documented in the skill’s [`references/auth.md`](skills/shopify-admin-cli/references/auth.md). Resource × action mapping lives in [`references/resources.md`](skills/shopify-admin-cli/references/resources.md); edit those files in place when the CLI surface changes.
 
 ## What it covers
 
@@ -108,15 +110,13 @@ shopify-admin-cli introspect type --name Order --json | jq '.fields[].name'
 
 `knowledge/` contains Shopify-specific gotchas: cost-based throttling, GID format, idempotent refunds, productSet vs productUpdate, three-phase order edits, staged uploads, bulk operations, B2B Plus-only gating, API version cadence, and why this CLI uses the official SDK over zero-dep fetch. Read these before mutating anything.
 
-The repo-root `knowledge/` directory remains the source of truth. To refresh the
-bundled copies shipped inside the published skill, run:
+The repo-root `knowledge/` directory remains the source of truth for mutation
+safety notes. To refresh the bundled copies under
+`skills/shopify-admin-cli/references/knowledge/`, run:
 
 ```bash
 npm run sync:published-skill
 ```
-
-Maintainer-only shards under `skills/.internal/` (auth + resources prose) feed
-that sync; they are not separate installable skills.
 
 ## Testing
 
