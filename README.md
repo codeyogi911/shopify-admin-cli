@@ -10,6 +10,23 @@ npm install
 node bin/shopify-admin-cli.mjs --help
 ```
 
+## Install the Agent Skill
+
+The published, self-contained skill lives at `skills/shopify-admin-cli/` and can
+be installed with [`vercel-labs/skills`](https://github.com/vercel-labs/skills).
+
+```bash
+# Install from the whole repo by skill name
+npx skills add <owner/repo> --skill shopify-admin-cli
+
+# Install directly from the skill folder
+npx skills add https://github.com/<owner>/<repo>/tree/<branch>/skills/shopify-admin-cli
+```
+
+The published skill bundles its own references, so it is safe to copy or
+symlink into an agent's skills directory without depending on the rest of this
+repository.
+
 Or symlink into your PATH:
 
 ```bash
@@ -78,6 +95,13 @@ shopify-admin-cli introspect type --name Order --json | jq '.fields[].name'
 ## Knowledge files
 
 `knowledge/` contains Shopify-specific gotchas: cost-based throttling, GID format, idempotent refunds, productSet vs productUpdate, three-phase order edits, staged uploads, bulk operations, B2B Plus-only gating, API version cadence, and why this CLI uses the official SDK over zero-dep fetch. Read these before mutating anything.
+
+The repo-root `knowledge/` directory remains the source of truth. To refresh the
+bundled copies shipped inside the published skill, run:
+
+```bash
+npm run sync:published-skill
+```
 
 ## Testing
 

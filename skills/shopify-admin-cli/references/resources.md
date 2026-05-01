@@ -1,13 +1,3 @@
----
-name: shopify-admin-cli-resources
-description: Catalogue of every resource × action exposed by shopify-admin-cli with the Shopify Admin GraphQL operation each one wraps. Use when the user asks "what does the X API support?", "how do I do Y in shopify-admin-cli?", or needs the full flag set for a specific action. Triggers on "shopify-admin-cli resources", "shopify-admin-cli reference", "what actions are on products", "list shopify cli commands".
-metadata:
-  internal: true
-allowed-tools:
-  - Bash
-  - Read
----
-
 # shopify-admin-cli-resources
 
 Every resource × action and the GraphQL operation it wraps. Use this as a reference when reaching for a specific operation.
@@ -105,7 +95,7 @@ The `shopify-admin-cli <resource> <action> --help` command prints the same flag 
 
 | Action | GraphQL operation | Notes |
 |---|---|---|
-| `preview` | (placeholder; see `knowledge/idempotency-refunds.md`) | |
+| `preview` | (placeholder; see `references/knowledge/idempotency-refunds.md`) | |
 | `create` | `refundCreate(input)` | **Always pass `--idempotency-key`** |
 
 ### `draft-orders` — Draft orders

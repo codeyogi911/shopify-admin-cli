@@ -1,6 +1,8 @@
 ---
 name: shopify-admin-cli-workflow
 description: Drive end-to-end workflows on the Shopify Admin GraphQL API via shopify-admin-cli — products, orders, customers, inventory, collections, discounts, metafields, fulfillment, refunds, draft-orders, returns, files, webhooks, bulk, gql, introspect, shop. Use whenever the user asks to list/get/create/update/delete Shopify entities, look up an order by name or email, segment customers, attach files via staged uploads, run a bulk query, or send raw GraphQL. Triggers on "Shopify", "Admin API", "GraphQL", "products/orders/customers", "store management", "introspect schema", "bulk operations", "shopify-admin-cli".
+metadata:
+  internal: true
 allowed-tools:
   - Bash
   - Read

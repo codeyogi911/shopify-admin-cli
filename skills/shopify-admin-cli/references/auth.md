@@ -1,13 +1,3 @@
----
-name: shopify-admin-cli-auth
-description: Authenticate shopify-admin-cli with a Shopify custom-app admin API access token. Use when the user asks how to set up auth, mint a token, configure scopes, troubleshoot 401/403 errors, or rotate credentials. Triggers on "shopify auth", "admin token", "shpat_", "custom app", "API scopes", "private app".
-metadata:
-  internal: true
-allowed-tools:
-  - Bash
-  - Read
----
-
 # shopify-admin-cli-auth
 
 `shopify-admin-cli` authenticates via the **custom-app admin API access token** flow. No OAuth, no session storage, no embedded-app machinery. The token is a long-lived secret minted from the Shopify admin UI; the CLI sends it as the `X-Shopify-Access-Token` header on every request.
@@ -77,11 +67,11 @@ The CLI pins to API version `2026-01` (in `lib/shopify.mjs`). To bump:
 3. Update `.clify.json.defaults.apiVersion`.
 4. Run integration tests against the new version.
 
-See `knowledge/api-versions.md` for the cadence.
+See `references/knowledge/api-versions.md` for the cadence.
 
 ## Why a static token (and not OAuth)
 
-The CLI runs from a developer's laptop or a CI/cron context — there's no browser to complete an OAuth callback, no embedded-app frame, no merchant-installation flow. Custom-app tokens are exactly the right shape: long-lived, scope-gated, revocable from the admin UI. See `knowledge/why-official-sdk.md` for context on how `@shopify/shopify-api` handles this.
+The CLI runs from a developer's laptop or a CI/cron context — there's no browser to complete an OAuth callback, no embedded-app frame, no merchant-installation flow. Custom-app tokens are exactly the right shape: long-lived, scope-gated, revocable from the admin UI. See `references/knowledge/why-official-sdk.md` for context on how `@shopify/shopify-api` handles this.
 
 ## Rotation
 

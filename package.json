@@ -5,7 +5,10 @@
   "type": "module",
   "bin": { "shopify-admin-cli": "./bin/shopify-admin-cli.mjs" },
   "engines": { "node": ">=20" },
-  "scripts": { "test": "node --test test/*.test.mjs" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "sync:published-skill": "node scripts/sync-published-skill.mjs"
+  },
   "license": "MIT",
   "dependencies": {
     "@shopify/shopify-api": "^13.0.0"

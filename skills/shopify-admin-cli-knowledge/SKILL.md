@@ -1,6 +1,8 @@
 ---
 name: shopify-admin-cli-knowledge
 description: Capture and consult Shopify-specific business rules, gotchas, and patterns while using shopify-admin-cli. Use when the user asks "what are the gotchas with this API?", "how does cost throttling work?", "why is my refund failing idempotency?", or wants to record a new finding from a live Shopify run. Triggers on "shopify gotcha", "shopify quirk", "shopify cost", "shopify deprecated", "shopify business rule".
+metadata:
+  internal: true
 allowed-tools:
   - Read
   - Write
