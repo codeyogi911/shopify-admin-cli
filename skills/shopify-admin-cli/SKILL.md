@@ -26,6 +26,45 @@ Use this skill whenever the user asks to:
 - configure auth, scopes, token rotation, or troubleshoot 401/403 failures
 - explain Shopify-specific gotchas before or during a workflow
 
+## Install this skill
+
+Use the [`skills` npm package](https://www.npmjs.com/package/skills) ([vercel-labs/skills](https://github.com/vercel-labs/skills)) — run it with **`npx skills`** (no manual copy from this repo required):
+
+```bash
+npx --yes skills@latest add codeyogi911/shopify-admin-cli --skill shopify-admin-cli
+```
+
+```bash
+npx --yes skills@latest add https://github.com/codeyogi911/shopify-admin-cli/tree/main/skills/shopify-admin-cli
+```
+
+Use the same `<owner>/<repo>` / GitHub URL if this skill was installed from a fork.
+
+## Install the CLI
+
+This repository’s CLI is not on the public npm registry. Install it from GitHub
+(use the same repo you installed this skill from—substitute if you use a fork):
+
+```bash
+shopify-admin-cli --version 2>/dev/null || true
+```
+
+If that fails, pick one:
+
+```bash
+# Persistent global binary
+npm install -g "git+https://github.com/codeyogi911/shopify-admin-cli.git"
+```
+
+```bash
+# No global install — prefix every invocation (example)
+npx --yes --package="git+https://github.com/codeyogi911/shopify-admin-cli.git" shopify-admin-cli shop info --json
+```
+
+If the agent workspace includes a full checkout of this repo, `npm install` at
+the repo root and run `./node_modules/.bin/shopify-admin-cli` or
+`node bin/shopify-admin-cli.mjs`.
+
 ## Setup
 
 Authenticate with a custom-app admin API access token:
@@ -117,8 +156,8 @@ shopify-admin-cli introspect queries --json
 This published skill is intentionally self-contained. Its bundled reference
 files live under `references/`.
 
-When the repo-root knowledge or helper skills change, refresh this published
-copy from the repository root with:
+When the repo-root knowledge or `skills/.internal/` shards change, refresh this
+published copy from the repository root with:
 
 ```bash
 npm run sync:published-skill

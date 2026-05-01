@@ -2,6 +2,10 @@
   "name": "shopify-admin-cli",
   "version": "0.1.0",
   "description": "Agent-friendly CLI for the Shopify Admin GraphQL API. Wraps @shopify/shopify-api in custom-app mode.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codeyogi911/shopify-admin-cli.git"
+  },
   "type": "module",
   "bin": { "shopify-admin-cli": "./bin/shopify-admin-cli.mjs" },
   "engines": { "node": ">=20" },

@@ -1,0 +1,1 @@
+../shopify-admin-cli/SKILL.md

@@ -2,35 +2,47 @@
 
 Agent-friendly CLI for the [Shopify Admin GraphQL API](https://shopify.dev/docs/api/admin-graphql). Wraps [`@shopify/shopify-api`](https://www.npmjs.com/package/@shopify/shopify-api) in custom-app mode — static admin token, no OAuth, no session storage. One resource × one action = one GraphQL operation.
 
-## Install
+## Agent skill (recommended entry point)
+
+Everything agents need is bundled in **one** umbrella skill under [`skills/shopify-admin-cli/`](skills/shopify-admin-cli/).
+
+### Install the skill with `npx skills`
+
+Use the **[`skills` npm package](https://www.npmjs.com/package/skills)** (open-source CLI: [vercel-labs/skills](https://github.com/vercel-labs/skills)). `npx` downloads and runs that package; you do **not** clone this repo first.
 
 ```bash
-git clone <this-repo> && cd shopify-admin-cli
+npx --yes skills@latest add codeyogi911/shopify-admin-cli --skill shopify-admin-cli
+```
+
+```bash
+npx --yes skills@latest add https://github.com/codeyogi911/shopify-admin-cli/tree/main/skills/shopify-admin-cli
+```
+
+That skill ships `references/knowledge/`, `references/auth.md`, and `references/resources.md`, so it stands alone once installed into your agent’s skills directory.
+
+### Install the CLI (after the skill)
+
+The **`shopify-admin-cli` binary is not** on the public npm registry; install it from the **same GitHub repo** as the skill:
+
+```bash
+# Global (persistent `shopify-admin-cli` on PATH)
+npm install -g "git+https://github.com/codeyogi911/shopify-admin-cli.git"
+```
+
+```bash
+# One-off / sandbox (downloads on first use)
+npx --yes --package="git+https://github.com/codeyogi911/shopify-admin-cli.git" shopify-admin-cli --help
+```
+
+Forks or mirrors should substitute `<owner>/<repo>` in the `npx skills add …` lines and use their own `git+https://github.com/<owner>/<repo>.git` URL for the CLI install commands above.
+
+## Install from a clone (contributors)
+
+```bash
+git clone https://github.com/codeyogi911/shopify-admin-cli.git && cd shopify-admin-cli
 npm install
 node bin/shopify-admin-cli.mjs --help
-```
-
-## Install the Agent Skill
-
-The published, self-contained skill lives at `skills/shopify-admin-cli/` and can
-be installed with [`vercel-labs/skills`](https://github.com/vercel-labs/skills).
-
-```bash
-# Install from the whole repo by skill name
-npx skills add <owner/repo> --skill shopify-admin-cli
-
-# Install directly from the skill folder
-npx skills add https://github.com/<owner>/<repo>/tree/<branch>/skills/shopify-admin-cli
-```
-
-The published skill bundles its own references, so it is safe to copy or
-symlink into an agent's skills directory without depending on the rest of this
-repository.
-
-Or symlink into your PATH:
-
-```bash
-ln -sf "$(pwd)/bin/shopify-admin-cli.mjs" /usr/local/bin/shopify-admin-cli
+# optional: npm link   # makes `shopify-admin-cli` available globally from this checkout
 ```
 
 ## Authenticate
@@ -41,7 +53,7 @@ export SHOPIFY_ADMIN_TOKEN=shpat_...        # Custom-app admin API access token
 shopify-admin-cli shop info --json          # smoke test
 ```
 
-See [`skills/shopify-admin-cli-auth/SKILL.md`](skills/shopify-admin-cli-auth/SKILL.md) for token minting + scopes.
+Token minting, scopes, and persisted login are documented in the skill’s [`references/auth.md`](skills/shopify-admin-cli/references/auth.md). Maintainer-facing source for that file lives at [`skills/.internal/shopify-admin-cli-auth/SKILL.md`](skills/.internal/shopify-admin-cli-auth/SKILL.md) (refresh the published copy with `npm run sync:published-skill`).
 
 ## What it covers
 
@@ -102,6 +114,9 @@ bundled copies shipped inside the published skill, run:
 ```bash
 npm run sync:published-skill
 ```
+
+Maintainer-only shards under `skills/.internal/` (auth + resources prose) feed
+that sync; they are not separate installable skills.
 
 ## Testing
 

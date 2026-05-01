@@ -4,6 +4,6 @@
   "description": "Agent-friendly CLI for the Shopify Admin GraphQL API. Wraps @shopify/shopify-api in custom-app mode.",
   "author": { "name": "shopify-admin-cli" },
   "license": "MIT",
-  "skills": "./skills",
+  "skills": ["./skills/shopify-admin-cli"],
   "capabilities": ["network"]
 }

@@ -31,5 +31,11 @@ await rm(knowledgeTargetDir, { recursive: true, force: true });
 await mkdir(knowledgeTargetDir, { recursive: true });
 
 await cp(knowledgeSourceDir, knowledgeTargetDir, { recursive: true });
-await copySkillBody("skills/shopify-admin-cli-auth/SKILL.md", "auth.md");
-await copySkillBody("skills/shopify-admin-cli-resources/SKILL.md", "resources.md");
+await copySkillBody(
+  "skills/.internal/shopify-admin-cli-auth/SKILL.md",
+  "auth.md",
+);
+await copySkillBody(
+  "skills/.internal/shopify-admin-cli-resources/SKILL.md",
+  "resources.md",
+);
